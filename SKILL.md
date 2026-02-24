@@ -14,6 +14,7 @@ Use Korean subtitle tracks first; if the extracted text is non-Korean, your LLM 
 ### 1) Collect inputs
 - Accept one YouTube URL or 11-char video ID.
 - Default output directory is `artifacts/` unless the user asks otherwise.
+- If running inside Gemini temp sessions (`~/.gemini/tmp/...`), relative output paths are mapped to the original project path from `.project_root`.
 
 ### 2) Ensure dependency
 Pick `<PYTHON_CMD>` by environment:
@@ -126,7 +127,7 @@ Requirements:
 
 `extract_youtube_ko_transcript.py` supports:
 - `--video`: YouTube URL or 11-char video ID (required)
-- `--output-dir`: destination folder (default: `artifacts`)
+- `--output-dir`: destination folder (default: `artifacts`; relative paths map to original project path in Gemini temp sessions, otherwise current working directory)
 - `--prefer-korean-languages`: preferred Korean track codes (default: `ko,ko-KR`)
 - `--source-languages`: fallback source track order (default: `en,en-US,ja,es,fr,de`)
 - `--languages`: backward-compatible alias of `--source-languages`

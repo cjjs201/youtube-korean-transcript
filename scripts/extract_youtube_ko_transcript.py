@@ -471,6 +471,46 @@ def track_mode(selected_lang: str) -> str:
     return "source-language-fallback"
 
 
+def find_project_root_marker(start_dir: Path) -> tuple[Path, Path] | None:
+    cur = start_dir.resolve()
+    while True:
+        marker = cur / ".project_root"
+        if marker.is_file():
+            try:
+                target = marker.read_text(encoding="utf-8", errors="replace").strip()
+            except Exception:
+                target = ""
+            if not target:
+                return None
+            return marker, Path(target).expanduser()
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
+def resolve_output_dir(output_dir_arg: str, cwd: Path | None = None) -> Path:
+    output_dir = Path(output_dir_arg).expanduser()
+    if output_dir.is_absolute():
+        return output_dir.resolve()
+
+    cwd = cwd or Path.cwd()
+    marker_info = find_project_root_marker(cwd)
+    if marker_info:
+        marker, real_project_root = marker_info
+        tmp_project_root = marker.parent.resolve()
+        cwd_resolved = cwd.resolve()
+        try:
+            relative_cwd = cwd_resolved.relative_to(tmp_project_root)
+        except ValueError:
+            relative_cwd = Path(".")
+        mapped_cwd = (real_project_root / relative_cwd).expanduser()
+        return (mapped_cwd / output_dir).resolve()
+
+    # Fallback: keep the classic behavior (relative to current working directory).
+    return (cwd / output_dir).resolve()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Extract subtitles via yt-dlp and generate one readable markdown file."
@@ -595,7 +635,7 @@ def main() -> int:
     korean_output = is_korean_lang_code(selected_lang)
 
     snippets = best["snippets"]
-    out_dir = Path(args.output_dir).expanduser().resolve()
+    out_dir = resolve_output_dir(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     readable_path = out_dir / f"{video_id}.ko.readable.md"

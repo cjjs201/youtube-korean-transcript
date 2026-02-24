@@ -52,6 +52,10 @@ Run from this skill directory:
   --output-dir artifacts
 ```
 
+Path behavior:
+- If running inside Gemini temp sessions (`~/.gemini/tmp/...`), relative output paths (like `artifacts`) are mapped to the original project path from `.project_root`.
+- Otherwise, relative output paths are resolved from the current working directory.
+
 Optional flags:
 
 ```bash
