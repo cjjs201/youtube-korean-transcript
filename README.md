@@ -31,10 +31,15 @@ youtube-korean-transcript/
 - Python 3.10+
 - `yt-dlp`
 
-Install dependency:
+Python command by environment:
+
+- macOS/Linux: `python3` (or `python` if `python --version` is 3.x)
+- Windows: `py -3` (or `python` if it points to Python 3)
+
+Install dependency (`<PYTHON_CMD>` is one of `python3`, `python`, `py -3`):
 
 ```bash
-PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install yt-dlp
+PIP_DISABLE_PIP_VERSION_CHECK=1 <PYTHON_CMD> -m pip install yt-dlp
 ```
 
 ## Usage
@@ -42,7 +47,7 @@ PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install yt-dlp
 Run from this skill directory:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts
 ```
@@ -50,7 +55,7 @@ python3 scripts/extract_youtube_ko_transcript.py \
 Optional flags:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts \
   --cookies /path/to/cookies.txt \
@@ -61,7 +66,7 @@ python3 scripts/extract_youtube_ko_transcript.py \
 If you want to disable chapter grouping:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts \
   --no-chapters

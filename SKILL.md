@@ -16,15 +16,19 @@ Use Korean subtitle tracks first; if the extracted text is non-Korean, your LLM 
 - Default output directory is `artifacts/` unless the user asks otherwise.
 
 ### 2) Ensure dependency
+Pick `<PYTHON_CMD>` by environment:
+- macOS/Linux: `python3` (or `python` if `python --version` is 3.x)
+- Windows: `py -3` (or `python` if it points to Python 3)
+
 ```bash
-PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install yt-dlp
+PIP_DISABLE_PIP_VERSION_CHECK=1 <PYTHON_CMD> -m pip install yt-dlp
 ```
 
 ### 3) Run the extractor
 Run from this skill directory:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts
 ```
@@ -32,7 +36,7 @@ python3 scripts/extract_youtube_ko_transcript.py \
 If YouTube blocks requests, retry with network/auth options:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts \
   --cookies /path/to/cookies.txt
@@ -41,7 +45,7 @@ python3 scripts/extract_youtube_ko_transcript.py \
 or
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts \
   --proxy-url "http://user:pass@host:port"
@@ -50,7 +54,7 @@ python3 scripts/extract_youtube_ko_transcript.py \
 If your environment has TLS interception/certificate issues:
 
 ```bash
-python3 scripts/extract_youtube_ko_transcript.py \
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
   --video "https://www.youtube.com/watch?v=VIDEO_ID" \
   --output-dir artifacts \
   --no-check-certificate
