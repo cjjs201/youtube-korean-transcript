@@ -1,6 +1,6 @@
 ---
 name: youtube-korean-transcript
-description: Extract a readable transcript from a YouTube video with Korean-first subtitle selection using yt-dlp, then ensure final readable output is Korean by translating non-Korean output with any LLM workflow (Gemini/OpenAI/Claude).
+description: Extracts one readable markdown transcript from a YouTube URL or video ID using yt-dlp with Korean-first subtitle selection, then routes non-Korean output through an LLM translation workflow. Use when users ask to extract, structure, timestamp, or translate YouTube transcripts (especially into Korean).
 ---
 
 # YouTube Korean Transcript
@@ -73,11 +73,11 @@ Metadata lines to check:
 - `Needs LLM Translation: true|false`
 
 ### 5) If needed, translate readable file to Korean in your LLM workflow
-When `Needs LLM Translation: true`:
-- Translate all transcript body text to Korean.
-- Keep section headers and timestamps exactly as-is.
+When `Needs LLM Translation: true`, you MUST:
+- Translate transcript body text into Korean.
+- Keep section headers and `[HH:MM:SS]` timestamps exactly unchanged.
 - Keep proper nouns/product names in original form when translation is awkward.
-- Overwrite the same file (`<video_id>.ko.readable.md`) with Korean text.
+- Overwrite the same file (`<video_id>.ko.readable.md`) in place.
 - Update metadata line in that file:
   - `Needs LLM Translation: false`
 
@@ -116,8 +116,10 @@ Requirements:
 ```
 
 ### 6) Apply response-quality checks
-- Verify first and last timestamps exist.
-- Keep timestamp format as `HH:MM:SS`.
+- Verify the file includes both first and last timestamps.
+- Verify every timestamp is `HH:MM:SS`.
+- Verify section headers and timestamp tokens were not changed by translation.
+- If any check fails, fix the file and re-run the checks before returning.
 - If user asks for polishing, only fix obvious ASR wording issues.
 
 ## Script Options
@@ -142,8 +144,3 @@ Requirements:
 - If no subtitle track is accessible, state that clearly and stop.
 - If YouTube blocks the network/IP (HTTP 429), retry later, change network, disable Tailscale Exit Node/VPN/cloud egress, or use `--cookies`/`--proxy-url`.
 - If TLS certificate verification fails, retry with `--no-check-certificate` only in restricted environments.
-
-## Typical User Triggers
-- "이 영상 자막 뽑아서 읽기 좋게 정리해줘"
-- "영어 자막이면 한글로 번역해서 readable 파일로 저장해줘"
-- "유튜브 링크로 readable 스크립트 파일 만들어줘"
