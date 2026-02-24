@@ -6,11 +6,10 @@ This skill:
 - Extracts subtitles from YouTube with `yt-dlp`
 - Prefers Korean subtitle tracks (`ko`, `ko-KR`, `ko.*`) first
 - Generates one readable output file: `<video_id>.ko.readable.md`
-- Adds metadata flags for post-translation workflows:
-  - `Video ID`
-  - `Video Title`
-  - `Video URL`
-  - `Needs LLM Translation`
+- Adds YAML frontmatter properties and summary sections:
+  - `title`, `url`, `video_id`, `channel`, `published`, `created`
+  - `needs_llm_translation`, `selected_subtitle_language`
+  - `Executive Summary`, `Detailed Summary`, `Key Insights & Action Items`
 - Uses chapter-based grouping when chapter metadata exists
 - Falls back to time-range sections when chapters do not exist
 
@@ -79,27 +78,45 @@ If you want to disable chapter grouping:
 ## Output Example
 
 ```text
-# <video title>
+---
+title: "<video title>"
+url: "https://www.youtube.com/watch?v=<video_id>"
+video_id: "<video_id>"
+channel: "<channel>"
+published: 2026-02-19
+created: 2026-02-24
+category: "Video/Knowledge"
+tags:
+  - "📺Youtube"
+needs_llm_translation: true|false
+selected_subtitle_language: "en"
+---
 
-- Video ID: <video_id>
-- Video Title: <video_title>
-- Video URL: <youtube_url>
-- Needs LLM Translation: true|false
+[영상 링크](https://www.youtube.com/watch?v=<video_id>)
+![<video title>](<thumbnail_url>)
 
-## 1. <chapter title> (00:00:00~00:03:10)
+## 📌 Executive Summary
+...
+## 🔍 Detailed Summary
+...
+## 💡 Key Insights & Action Items
+...
+## 📝 Transcript
+### 1. <chapter title> (00:00:00~00:03:10)
 [00:00:00] ...
 ```
 
 ## LLM Post-Translation Workflow
 
-When `Needs LLM Translation: true`:
+When `needs_llm_translation: true`:
 - Translate transcript body to Korean
-- Keep section headings and `[HH:MM:SS]` timestamps unchanged
+- Fill summary sections in Korean
+- Keep transcript section headings and `[HH:MM:SS]` timestamps unchanged
 - Keep proper nouns in source language if needed
-- Update metadata line to:
+- Update YAML field to:
 
 ```text
-- Needs LLM Translation: false
+needs_llm_translation: false
 ```
 
 ## Troubleshooting

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import html
 import json
 import re
@@ -313,6 +314,36 @@ def detect_ssl_cert_error(message: str) -> bool:
     return "certificate verify failed" in text or "certificateverifyerror" in text
 
 
+def normalize_yyyymmdd(value: str) -> str | None:
+    raw = value.strip()
+    if re.fullmatch(r"\d{8}", raw):
+        return f"{raw[0:4]}-{raw[4:6]}-{raw[6:8]}"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return raw
+    return None
+
+
+def detect_published_date(info: dict) -> str | None:
+    for key in ("release_date", "upload_date"):
+        maybe = normalize_yyyymmdd(str(info.get(key) or ""))
+        if maybe:
+            return maybe
+
+    ts = info.get("release_timestamp") or info.get("timestamp")
+    if isinstance(ts, (int, float)) and ts > 0:
+        try:
+            return datetime.utcfromtimestamp(ts).date().isoformat()
+        except Exception:
+            return None
+    return None
+
+
+def yaml_quote(value: str) -> str:
+    cleaned = value.replace("\n", " ").strip()
+    escaped = cleaned.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def gather_available_languages(info: dict) -> list[str]:
     subs = info.get("subtitles") or {}
     auto = info.get("automatic_captions") or {}
@@ -370,6 +401,9 @@ def download_subtitles_with_ytdlp(
 
     video_title = str(info.get("title") or video_id).strip()
     video_web_url = str(info.get("webpage_url") or video_url).strip()
+    channel_name = str(info.get("channel") or info.get("uploader") or "").strip()
+    thumbnail_url = str(info.get("thumbnail") or "").strip()
+    published_date = detect_published_date(info)
 
     available_languages = gather_available_languages(info)
     candidate_languages = build_candidate_languages(available_languages, preferred_ko, source_languages)
@@ -430,6 +464,9 @@ def download_subtitles_with_ytdlp(
     return {
         "video_title": video_title,
         "video_url": video_web_url,
+        "channel_name": channel_name,
+        "thumbnail_url": thumbnail_url,
+        "published_date": published_date,
         "chapters": info.get("chapters") or [],
         "available_languages": available_languages,
         "candidate_languages": candidate_languages,
@@ -616,6 +653,10 @@ def main() -> int:
         return 2
     video_title = str(result.get("video_title") or video_id).strip()
     video_web_url = str(result.get("video_url") or f"https://www.youtube.com/watch?v={video_id}").strip()
+    channel_name = str(result.get("channel_name") or "Unknown").strip() or "Unknown"
+    thumbnail_url = str(result.get("thumbnail_url") or "").strip()
+    created_date = datetime.now().date().isoformat()
+    published_date = str(result.get("published_date") or created_date).strip()
 
     best = choose_best_track(result["parsed_tracks"], preferred_ko, source_languages)
     if best is None:
@@ -643,15 +684,50 @@ def main() -> int:
     section_seconds = max(60, args.section_minutes * 60)
     chapters = [] if args.no_chapters else normalize_chapters(result.get("chapters"), total_duration)
 
+    needs_llm_translation = str((not korean_output)).lower()
     readable_lines = [
-        f"# {video_title}",
+        "---",
+        f"title: {yaml_quote(video_title)}",
+        f"url: {yaml_quote(video_web_url)}",
+        f"video_id: {yaml_quote(video_id)}",
+        f"channel: {yaml_quote(channel_name)}",
+        f"published: {published_date}",
+        f"created: {created_date}",
+        'category: "Video/Knowledge"',
+        "tags:",
+        '  - "📺Youtube"',
+        f"needs_llm_translation: {needs_llm_translation}",
+        f"selected_subtitle_language: {yaml_quote(selected_lang)}",
+        "---",
         "",
-        f"- Video ID: {video_id}",
-        f"- Video Title: {video_title}",
-        f"- Video URL: {video_web_url}",
-        f"- Needs LLM Translation: {str((not korean_output)).lower()}",
-        "",
+        f"[영상 링크]({video_web_url})",
     ]
+    if thumbnail_url:
+        readable_lines.extend(
+            [
+                f"![{video_title}]({thumbnail_url})",
+                "",
+            ]
+        )
+    readable_lines.extend(
+        [
+            "## 📌 Executive Summary",
+            "- (요약을 작성해 주세요.)",
+            "",
+            "## 🔍 Detailed Summary",
+            "### 핵심 개념 및 주요 사항",
+            "Keywords: ",
+            "",
+            "### 섹션별 상세 분석",
+            "- (섹션별 요약을 작성해 주세요.)",
+            "",
+            "## 💡 Key Insights & Action Items",
+            "- (실행 항목을 작성해 주세요.)",
+            "",
+            "## 📝 Transcript",
+            "",
+        ]
+    )
 
     rendered_sections = 0
     if chapters:
@@ -665,7 +741,7 @@ def main() -> int:
                 continue
 
             readable_lines.append(
-                f"## {chapter_index}. {chapter['title']} ({hhmmss(chapter_start)}~{hhmmss(chapter_end)})"
+                f"### {chapter_index}. {chapter['title']} ({hhmmss(chapter_start)}~{hhmmss(chapter_end)})"
             )
             readable_lines.append("")
             for p_start, p_text in paragraphize(section_snippets):
@@ -686,7 +762,7 @@ def main() -> int:
             ]
             if section_snippets:
                 readable_lines.append(
-                    f"## Section {section_index} ({hhmmss(section_start)}~{hhmmss(section_end)})"
+                    f"### Section {section_index} ({hhmmss(section_start)}~{hhmmss(section_end)})"
                 )
                 readable_lines.append("")
                 for p_start, p_text in paragraphize(section_snippets):
@@ -702,7 +778,7 @@ def main() -> int:
     print(f"segments={len(snippets)}")
     print(f"duration={hhmmss(total_duration)}")
     print(f"selected_language={selected_lang}")
-    print(f"korean_output={str(korean_output).lower()}")
+    print(f"needs_llm_translation={needs_llm_translation}")
     print(f"readable={readable_path}")
     return 0
 

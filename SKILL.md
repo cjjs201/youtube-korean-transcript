@@ -67,20 +67,35 @@ Expect one file:
 - If chapters exist on YouTube metadata, readable output is grouped by chapter titles.
 - If chapters do not exist, output falls back to fixed section ranges by `--section-minutes`.
 
-Metadata lines to check:
-- `Video ID: ...`
-- `Video Title: ...`
-- `Video URL: ...`
-- `Needs LLM Translation: true|false`
+Frontmatter/YAML properties to check:
+- `title: ...`
+- `url: ...`
+- `video_id: ...`
+- `channel: ...`
+- `published: YYYY-MM-DD`
+- `created: YYYY-MM-DD`
+- `needs_llm_translation: true|false`
 
-### 5) If needed, translate readable file to Korean in your LLM workflow
-When `Needs LLM Translation: true`, you MUST:
+Summary/template sections to check:
+- `## 📌 Executive Summary`
+- `## 🔍 Detailed Summary`
+- `## 💡 Key Insights & Action Items`
+- `## 📝 Transcript`
+
+### 5) Translate + summarize in your LLM workflow
+When `needs_llm_translation: true`, you MUST:
 - Translate transcript body text into Korean.
-- Keep section headers and `[HH:MM:SS]` timestamps exactly unchanged.
+- Keep transcript section headers and `[HH:MM:SS]` timestamps exactly unchanged.
 - Keep proper nouns/product names in original form when translation is awkward.
+- Fill summary sections in Korean:
+  - `## 📌 Executive Summary`
+  - `## 🔍 Detailed Summary`
+  - `## 💡 Key Insights & Action Items`
 - Overwrite the same file (`<video_id>.ko.readable.md`) in place.
-- Update metadata line in that file:
-  - `Needs LLM Translation: false`
+- Update YAML property in that file:
+  - `needs_llm_translation: false`
+
+When `needs_llm_translation: false`, you SHOULD still fill summary sections in Korean.
 
 ### 5-1) LLM Post-Translation Prompt Templates
 Use one of the templates below in your current environment (Gemini/OpenAI/Claude).
@@ -92,11 +107,11 @@ Template A (Korean default):
 파일 경로: <READABLE_FILE_PATH>
 
 규칙:
-1) 본문 자막 문장만 자연스러운 한국어로 번역합니다.
-2) `## ...` 소제목과 `[HH:MM:SS]` 타임스탬프는 원문을 그대로 유지합니다.
-3) 고유명사(인명, 제품명, 프로젝트명)는 의미가 어색해지면 원문을 유지합니다.
-4) 메타데이터 중 `- Needs LLM Translation: true`는 `- Needs LLM Translation: false`로 바꿉니다.
-5) 다른 메타데이터 줄(`Video ID`, `Video Title`, `Video URL`)은 유지합니다.
+1) `needs_llm_translation: true`이면 본문 자막 문장을 자연스러운 한국어로 번역합니다.
+2) `## 📝 Transcript` 아래의 소제목과 `[HH:MM:SS]` 타임스탬프는 원문을 그대로 유지합니다.
+3) `## 📌 Executive Summary`, `## 🔍 Detailed Summary`, `## 💡 Key Insights & Action Items`를 한국어로 채웁니다.
+4) 고유명사(인명, 제품명, 프로젝트명)는 의미가 어색해지면 원문을 유지합니다.
+5) YAML frontmatter는 유지하되 `needs_llm_translation: true`는 `needs_llm_translation: false`로 바꿉니다.
 6) 설명 출력 없이 파일만 덮어써서 저장합니다.
 ```
 
@@ -108,18 +123,19 @@ File path: <READABLE_FILE_PATH>
 Target language: <TARGET_LANGUAGE>
 
 Requirements:
-1) Translate only transcript body sentences into <TARGET_LANGUAGE>.
-2) Preserve section headings (`## ...`) and `[HH:MM:SS]` timestamps exactly.
-3) Keep proper nouns in original form when translation hurts clarity.
-4) Change `- Needs LLM Translation: true` to `- Needs LLM Translation: false`.
-5) Keep `Video ID`, `Video Title`, `Video URL` unchanged.
+1) If `needs_llm_translation: true`, translate transcript body sentences into <TARGET_LANGUAGE>.
+2) Preserve transcript section headings and `[HH:MM:SS]` timestamps exactly.
+3) Fill `Executive Summary / Detailed Summary / Key Insights` in <TARGET_LANGUAGE>.
+4) Keep proper nouns in original form when translation hurts clarity.
+5) Keep YAML frontmatter unchanged except setting `needs_llm_translation: false`.
 6) Save changes to the same file with no extra commentary.
 ```
 
 ### 6) Apply response-quality checks
 - Verify the file includes both first and last timestamps.
 - Verify every timestamp is `HH:MM:SS`.
-- Verify section headers and timestamp tokens were not changed by translation.
+- Verify transcript section headers and timestamp tokens were not changed by translation.
+- Verify all three summary sections are filled (not placeholders).
 - If any check fails, fix the file and re-run the checks before returning.
 - If user asks for polishing, only fix obvious ASR wording issues.
 
