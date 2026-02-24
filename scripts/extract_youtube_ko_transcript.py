@@ -222,6 +222,119 @@ def paragraphize(
     return paragraphs
 
 
+def trim_text_for_summary(text: str, max_chars: int) -> str:
+    compact = re.sub(r"\s+", " ", text).strip()
+    if len(compact) <= max_chars:
+        return compact
+
+    sliced = compact[:max_chars]
+    sentence_cut = max(sliced.rfind(". "), sliced.rfind("? "), sliced.rfind("! "))
+    if sentence_cut >= max_chars // 2:
+        return sliced[: sentence_cut + 1].strip()
+
+    word_cut = sliced.rfind(" ")
+    if word_cut >= max_chars // 2:
+        sliced = sliced[:word_cut]
+
+    return sliced.rstrip(" ,;:") + "..."
+
+
+def collect_sections(
+    snippets: list[dict],
+    chapters: list[dict],
+    total_duration: float,
+    section_seconds: float,
+) -> list[dict]:
+    sections: list[dict] = []
+
+    if chapters:
+        for chapter_index, chapter in enumerate(chapters, start=1):
+            chapter_start = chapter["start"]
+            chapter_end = chapter["end"]
+            section_snippets = [
+                item for item in snippets if chapter_start <= item["start"] < chapter_end
+            ]
+            if not section_snippets:
+                continue
+            sections.append(
+                {
+                    "heading": f"{chapter_index}. {chapter['title']}",
+                    "start": chapter_start,
+                    "end": chapter_end,
+                    "snippets": section_snippets,
+                }
+            )
+
+    if sections:
+        return sections
+
+    section_index = 1
+    section_start = 0.0
+    while section_start < total_duration:
+        section_end = min(total_duration, section_start + section_seconds)
+        if section_end <= section_start:
+            break
+
+        section_snippets = [
+            item for item in snippets if section_start <= item["start"] < section_end
+        ]
+        if section_snippets:
+            sections.append(
+                {
+                    "heading": f"Section {section_index}",
+                    "start": section_start,
+                    "end": section_end,
+                    "snippets": section_snippets,
+                }
+            )
+            section_index += 1
+
+        section_start = section_end
+
+    return sections
+
+
+def build_compact_summary_source(
+    sections: list[dict],
+    max_sections: int,
+    max_points_per_section: int,
+    max_chars_per_point: int,
+) -> list[str]:
+    compact_lines: list[str] = []
+    selected_sections = sections[: max(1, max_sections)]
+
+    for section in selected_sections:
+        paras = paragraphize(
+            section["snippets"],
+            max_chars=max_chars_per_point,
+            max_gap=15.0,
+            hard_max_chars=max_chars_per_point * 2,
+        )
+        if not paras:
+            continue
+
+        selected_texts: list[str] = [paras[0][1]]
+
+        if len(paras) > 2 and len(selected_texts) < max_points_per_section:
+            middle_text = paras[len(paras) // 2][1]
+            if middle_text not in selected_texts:
+                selected_texts.append(middle_text)
+
+        if len(paras) > 1 and len(selected_texts) < max_points_per_section:
+            last_text = paras[-1][1]
+            if last_text not in selected_texts:
+                selected_texts.append(last_text)
+
+        selected_texts = selected_texts[: max(1, max_points_per_section)]
+        merged = " | ".join(trim_text_for_summary(t, max_chars_per_point) for t in selected_texts)
+
+        compact_lines.append(
+            f"- [{hhmmss(section['start'])}~{hhmmss(section['end'])}] {section['heading']}: {merged}"
+        )
+
+    return compact_lines
+
+
 def normalize_chapters(chapters: list[dict] | None, total_duration: float) -> list[dict]:
     if not chapters:
         return []
@@ -606,6 +719,24 @@ def main() -> int:
         default=10,
         help="Section size in minutes for readable markdown (default: 10)",
     )
+    parser.add_argument(
+        "--summary-compact-sections",
+        type=int,
+        default=8,
+        help="Max sections included in compact summary source (default: 8)",
+    )
+    parser.add_argument(
+        "--summary-compact-points",
+        type=int,
+        default=2,
+        help="Max representative points per section in compact summary source (default: 2)",
+    )
+    parser.add_argument(
+        "--summary-compact-chars",
+        type=int,
+        default=180,
+        help="Max characters per representative point in compact summary source (default: 180)",
+    )
     args = parser.parse_args()
 
     try:
@@ -683,6 +814,16 @@ def main() -> int:
     total_duration = snippets[-1]["start"] + snippets[-1]["duration"]
     section_seconds = max(60, args.section_minutes * 60)
     chapters = [] if args.no_chapters else normalize_chapters(result.get("chapters"), total_duration)
+    sections = collect_sections(snippets, chapters, total_duration, section_seconds)
+    summary_compact_sections = max(1, args.summary_compact_sections)
+    summary_compact_points = max(1, args.summary_compact_points)
+    summary_compact_chars = max(80, args.summary_compact_chars)
+    compact_summary_lines = build_compact_summary_source(
+        sections=sections,
+        max_sections=summary_compact_sections,
+        max_points_per_section=summary_compact_points,
+        max_chars_per_point=summary_compact_chars,
+    )
 
     needs_llm_translation = str((not korean_output)).lower()
     readable_lines = [
@@ -711,66 +852,45 @@ def main() -> int:
         )
     readable_lines.extend(
         [
+            "## 📎 Summary Source (Compact)",
+            "- 아래 항목만으로 요약을 작성하세요. (토큰 절약 모드)",
+            f"- 요약 반영 범위: 상위 {min(len(sections), summary_compact_sections)}개 섹션",
+            "",
+        ]
+    )
+    if compact_summary_lines:
+        readable_lines.extend(compact_summary_lines)
+    else:
+        readable_lines.append("- (Compact source를 생성하지 못했습니다. Transcript 상단 구간을 기준으로 요약하세요.)")
+    readable_lines.extend(
+        [
+            "",
             "## 📌 Executive Summary",
-            "- (요약을 작성해 주세요.)",
+            "- (4~6문장으로 작성해 주세요.)",
             "",
             "## 🔍 Detailed Summary",
             "### 핵심 개념 및 주요 사항",
-            "Keywords: ",
+            "Keywords: (5~10개)",
             "",
             "### 섹션별 상세 분석",
-            "- (섹션별 요약을 작성해 주세요.)",
+            "- (4~6개 bullet로 작성해 주세요.)",
             "",
             "## 💡 Key Insights & Action Items",
-            "- (실행 항목을 작성해 주세요.)",
+            "- (3~5개 action item으로 작성해 주세요.)",
             "",
             "## 📝 Transcript",
             "",
         ]
     )
 
-    rendered_sections = 0
-    if chapters:
-        for chapter_index, chapter in enumerate(chapters, start=1):
-            chapter_start = chapter["start"]
-            chapter_end = chapter["end"]
-            section_snippets = [
-                item for item in snippets if chapter_start <= item["start"] < chapter_end
-            ]
-            if not section_snippets:
-                continue
-
-            readable_lines.append(
-                f"### {chapter_index}. {chapter['title']} ({hhmmss(chapter_start)}~{hhmmss(chapter_end)})"
-            )
+    for section in sections:
+        readable_lines.append(
+            f"### {section['heading']} ({hhmmss(section['start'])}~{hhmmss(section['end'])})"
+        )
+        readable_lines.append("")
+        for p_start, p_text in paragraphize(section["snippets"]):
+            readable_lines.append(f"[{hhmmss(p_start)}] {p_text}")
             readable_lines.append("")
-            for p_start, p_text in paragraphize(section_snippets):
-                readable_lines.append(f"[{hhmmss(p_start)}] {p_text}")
-                readable_lines.append("")
-            rendered_sections += 1
-
-    if rendered_sections == 0:
-        section_index = 1
-        section_start = 0.0
-        while section_start < total_duration:
-            section_end = min(total_duration, section_start + section_seconds)
-            if section_end <= section_start:
-                break
-
-            section_snippets = [
-                item for item in snippets if section_start <= item["start"] < section_end
-            ]
-            if section_snippets:
-                readable_lines.append(
-                    f"### Section {section_index} ({hhmmss(section_start)}~{hhmmss(section_end)})"
-                )
-                readable_lines.append("")
-                for p_start, p_text in paragraphize(section_snippets):
-                    readable_lines.append(f"[{hhmmss(p_start)}] {p_text}")
-                    readable_lines.append("")
-                section_index += 1
-
-            section_start = section_end
 
     readable_path.write_text("\n".join(readable_lines).rstrip() + "\n", encoding="utf-8")
 
@@ -779,6 +899,7 @@ def main() -> int:
     print(f"duration={hhmmss(total_duration)}")
     print(f"selected_language={selected_lang}")
     print(f"needs_llm_translation={needs_llm_translation}")
+    print(f"summary_source_sections={min(len(sections), summary_compact_sections)}")
     print(f"readable={readable_path}")
     return 0
 

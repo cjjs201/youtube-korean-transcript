@@ -10,6 +10,8 @@ This skill:
   - `title`, `url`, `video_id`, `channel`, `published`, `created`
   - `needs_llm_translation`, `selected_subtitle_language`
   - `Executive Summary`, `Detailed Summary`, `Key Insights & Action Items`
+- Adds `Summary Source (Compact)` for low-token summarization
+- Applies a humanizer pass to reduce AI-like Korean writing patterns
 - Uses chapter-based grouping when chapter metadata exists
 - Falls back to time-range sections when chapters do not exist
 
@@ -66,6 +68,17 @@ Optional flags:
   --no-check-certificate
 ```
 
+Token-saving summary mode:
+
+```bash
+<PYTHON_CMD> scripts/extract_youtube_ko_transcript.py \
+  --video "https://www.youtube.com/watch?v=VIDEO_ID" \
+  --output-dir artifacts \
+  --summary-compact-sections 8 \
+  --summary-compact-points 2 \
+  --summary-compact-chars 180
+```
+
 If you want to disable chapter grouping:
 
 ```bash
@@ -95,6 +108,9 @@ selected_subtitle_language: "en"
 [영상 링크](https://www.youtube.com/watch?v=<video_id>)
 ![<video title>](<thumbnail_url>)
 
+## 📎 Summary Source (Compact)
+- ...
+
 ## 📌 Executive Summary
 ...
 ## 🔍 Detailed Summary
@@ -110,14 +126,32 @@ selected_subtitle_language: "en"
 
 When `needs_llm_translation: true`:
 - Translate transcript body to Korean
-- Fill summary sections in Korean
+- Fill summary sections in Korean using `Summary Source (Compact)`
 - Keep transcript section headings and `[HH:MM:SS]` timestamps unchanged
 - Keep proper nouns in source language if needed
+- Apply a humanized Korean pass:
+  - reduce hype-heavy wording and abstract praise
+  - replace vague sources with concrete references (or remove)
+  - reduce repetitive connectors and formulaic phrasing
+- Remove `Summary Source (Compact)` section in final output (unless user wants to keep it)
 - Update YAML field to:
 
 ```text
 needs_llm_translation: false
 ```
+
+When `needs_llm_translation: false`:
+- Skip transcript translation
+- Update only summary sections using `Summary Source (Compact)`
+
+Recommended summary lengths:
+- Executive Summary: 4~6 sentences
+- Detailed Summary: 4~6 bullets
+- Key Insights & Action Items: 3~5 bullets
+
+Token-saving execution tips:
+- Use one LLM edit call per video (avoid repeated read/replace loops)
+- Use one fresh chat/session per video URL
 
 ## Troubleshooting
 
@@ -129,6 +163,11 @@ needs_llm_translation: false
   - Use `--no-check-certificate` only when your environment intercepts HTTPS
 - No subtitles found:
   - The video may not expose downloadable subtitle tracks
+
+Additional script options for token savings:
+- `--summary-compact-sections` (default: `8`)
+- `--summary-compact-points` (default: `2`)
+- `--summary-compact-chars` (default: `180`)
 
 ## License
 
