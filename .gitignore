@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Local outputs
+artifacts/
+*.log
+
+# Temp
+.tmp/
+.tmp-*/
