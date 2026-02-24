@@ -104,26 +104,6 @@ When `Needs LLM Translation: true`:
 - No subtitles found:
   - The video may not expose downloadable subtitle tracks
 
-## Publish to GitHub
-
-### 1) Create a new GitHub repository
-Create an empty repo (example: `youtube-korean-transcript-skill`).
-
-### 2) Push this folder
-
-```bash
-cd <SKILL_DIRECTORY>
-git init
-git add SKILL.md README.md LICENSE .gitignore scripts/extract_youtube_ko_transcript.py
-git commit -m "Initial release: YouTube Korean Transcript skill"
-git branch -M main
-git remote add origin https://github.com/<YOUR_ID>/<YOUR_REPO>.git
-git push -u origin main
-```
-
-### 3) Share and install
-Share your repository URL so others can clone/install according to their agent CLI workflow.
-
 ## License
 
 MIT License. See `LICENSE`.
